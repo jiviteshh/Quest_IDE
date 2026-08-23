@@ -1,0 +1,75 @@
+services:
+  piston:
+    image: jivitesh09/questide-piston:latest
+    container_name: questide-piston
+    privileged: true
+    security_opt:
+      - label=disable
+    volumes:
+      - piston_packages:/piston/packages
+    ports:
+      - "2000:2000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:2000/api/v2/runtimes', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  piston-bootstrap:
+    image: node:22-alpine
+    container_name: questide-piston-bootstrap
+    depends_on:
+      piston:
+        condition: service_healthy
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        set -e &&
+        apk add --no-cache git curl >/dev/null &&
+        git clone --depth 1 https://github.com/engineer-man/piston.git /tmp/piston >/dev/null 2>&1 &&
+        cd /tmp/piston/cli && npm ci --silent &&
+        runtimes=$$(curl -fsS http://piston:2000/api/v2/runtimes) &&
+        echo "$$runtimes" | grep -q '"language":"python"' || node index.js -u http://piston:2000 ppman install python=3.10.0 &&
+        runtimes=$$(curl -fsS http://piston:2000/api/v2/runtimes) &&
+        echo "$$runtimes" | grep -q '"language":"java"' || node index.js -u http://piston:2000 ppman install java=15.0.2 &&
+        runtimes=$$(curl -fsS http://piston:2000/api/v2/runtimes) &&
+        echo "$$runtimes" | grep -q '"language":"c++"' || node index.js -u http://piston:2000 ppman install gcc=10.2.0
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    container_name: questide-backend
+    env_file:
+      - path: ./Backend/.env
+        required: false
+    environment:
+      PISTON_URL: http://piston:2000
+    ports:
+      - "8000:8000"
+    depends_on:
+      piston:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    container_name: questide-frontend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  piston_packages:
