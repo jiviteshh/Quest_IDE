@@ -20,19 +20,24 @@ export default function WorkspaceLayout({
   assistant,
 }: WorkspaceLayoutProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [sizes, setSizes] = useState<PanelSizes>(() =>
-    typeof window === "undefined" ? DEFAULT_PANEL_SIZES : getPanelSizes(),
-  );
+  const [sizes, setSizes] = useState<PanelSizes>(DEFAULT_PANEL_SIZES);
   const [isProblemDragging, setIsProblemDragging] = useState(false);
   const [isAssistantDragging, setIsAssistantDragging] = useState(false);
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window === "undefined" ? false : window.innerWidth < 900,
-  );
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    const syncLayoutState = () => {
+      setSizes(getPanelSizes());
+      setIsMobile(window.innerWidth < 900);
+    };
+    const timer = window.setTimeout(syncLayoutState, 0);
+
     const handleResize = () => setIsMobile(window.innerWidth < 900);
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const persistSizes = useCallback((next: PanelSizes) => {

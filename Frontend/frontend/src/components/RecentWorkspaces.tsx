@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   type RecentWorkspace,
   getRecentWorkspaces,
@@ -40,9 +40,14 @@ function timeAgo(timestamp: number) {
 export default function RecentWorkspaces({
   onSelect,
 }: RecentWorkspacesProps) {
-  const [workspaces] = useState<RecentWorkspace[]>(() =>
-    typeof window !== "undefined" ? getRecentWorkspaces() : [],
-  );
+  const [workspaces, setWorkspaces] = useState<RecentWorkspace[]>([]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setWorkspaces(getRecentWorkspaces());
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   if (workspaces.length === 0) return null;
 

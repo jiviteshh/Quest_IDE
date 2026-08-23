@@ -12,12 +12,23 @@ export default function APIKeyOnboardingModal({
   isOpen,
   onClose,
 }: APIKeyOnboardingModalProps) {
-  const { saveAPIKey } = useAPIKey();
+  const { apiKey, saveAPIKey, clearAPIKey } = useAPIKey();
   const [inputValue, setInputValue] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      const timer = window.setTimeout(() => {
+        setInputValue(apiKey);
+        setError(null);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [apiKey, isOpen]);
 
   // Handle ESC key
   useEffect(() => {
@@ -221,6 +232,20 @@ export default function APIKeyOnboardingModal({
                     )}
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearAPIKey();
+                    setInputValue("");
+                    setError(null);
+                    onClose();
+                  }}
+                  disabled={isSaving}
+                  className="w-full rounded-lg border border-zinc-700 px-4 py-2 text-xs font-medium text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Use server-configured key instead
+                </button>
 
                 {/* How to Get a Key Button */}
                 <button

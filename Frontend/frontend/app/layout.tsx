@@ -4,6 +4,8 @@ import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import Navbar from "@/src/components/Navbar";
 
+const isVercel = process.env.VERCEL === "1";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -35,7 +37,7 @@ export default function RootLayout({
       <body className="flex h-screen min-h-0 flex-col overflow-hidden bg-zinc-950 text-zinc-100">
         <Navbar />
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
-        <Analytics />
+        {isVercel ? <Analytics /> : null}
       </body>
     </html>
   );
