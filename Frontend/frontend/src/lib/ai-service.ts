@@ -8,6 +8,18 @@ const aiClient = axios.create({
   timeout: 120_000,
 });
 
+aiClient.interceptors.request.use((config) => {
+  const apiKey = typeof window !== "undefined"
+    ? localStorage.getItem("questide_ai_api_key")
+    : null;
+
+  if (apiKey) {
+    config.headers["x-user-api-key"] = apiKey;
+  }
+
+  return config;
+});
+
 export type AIAction =
   | "chat"
   | "hint"

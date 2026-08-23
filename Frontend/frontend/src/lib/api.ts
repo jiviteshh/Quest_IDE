@@ -15,6 +15,18 @@ const apiClient = axios.create({
   timeout: 120_000,
 });
 
+apiClient.interceptors.request.use((config) => {
+  const apiKey = typeof window !== "undefined"
+    ? localStorage.getItem("questide_ai_api_key")
+    : null;
+
+  if (apiKey) {
+    config.headers["x-user-api-key"] = apiKey;
+  }
+
+  return config;
+});
+
 function parseAxiosError(error: unknown, fallbackMessage: string): Error {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as { detail?: string } | undefined;

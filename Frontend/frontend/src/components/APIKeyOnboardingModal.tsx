@@ -235,7 +235,7 @@ export default function APIKeyOnboardingModal({
               {/* Info Text */}
               <div className="mt-6 border-t border-zinc-800 pt-4">
                 <p className="text-xs text-zinc-500">
-                  ℹ️ AI requests use the provider key configured in this installation&apos;s Backend/.env file.
+                  ℹ️ Requests use this browser key when saved; otherwise they use the provider key configured in Backend/.env.
                 </p>
                 <p className="mt-2 text-xs text-green-400/80">
                   ✓ Free endpoint — no cost concerns. Use the AI features as much as you want!
