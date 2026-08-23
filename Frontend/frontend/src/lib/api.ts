@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { AxiosRequestConfig } from "axios";
 import type {
   ParsedProblem,
   RunCodeRequest,
@@ -15,7 +16,15 @@ const apiClient = axios.create({
   timeout: 120_000,
 });
 
+type ApiRequestConfig = AxiosRequestConfig & {
+  skipUserApiKey?: boolean;
+};
+
 apiClient.interceptors.request.use((config) => {
+  if ((config as ApiRequestConfig).skipUserApiKey) {
+    return config;
+  }
+
   const apiKey = typeof window !== "undefined"
     ? localStorage.getItem("questide_ai_api_key")
     : null;
@@ -33,6 +42,24 @@ function parseAxiosError(error: unknown, fallbackMessage: string): Error {
     return new Error(data?.detail ?? error.message ?? fallbackMessage);
   }
   return new Error(fallbackMessage);
+}
+
+function isUserApiKeyError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  const detail = (error.response?.data as { detail?: unknown } | undefined)?.detail;
+  if (typeof detail !== "string") return false;
+  const normalized = detail.toLowerCase();
+  return normalized.includes("api_key") || normalized.includes("api key");
+}
+
+function hasStoredUserApiKey(): boolean {
+  return typeof window !== "undefined" && !!localStorage.getItem("questide_ai_api_key");
+}
+
+function clearStoredUserApiKey() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("questide_ai_api_key");
+  }
 }
 
 export async function runCode(payload: RunCodeRequest) {
@@ -128,6 +155,20 @@ export async function parseProblem(payload: { problem_text: string }) {
     const data = response.data as { parsed_problem?: ParsedProblem } & ParsedProblem;
     return data.parsed_problem ?? data;
   } catch (error) {
+    if (hasStoredUserApiKey() && isUserApiKeyError(error)) {
+      clearStoredUserApiKey();
+      try {
+        const response = await apiClient.post<{ parsed_problem?: ParsedProblem } | ParsedProblem>(
+          "/parse-problem",
+          payload,
+          { timeout: 120_000, skipUserApiKey: true } as ApiRequestConfig,
+        );
+        const data = response.data as { parsed_problem?: ParsedProblem } & ParsedProblem;
+        return data.parsed_problem ?? data;
+      } catch (fallbackError) {
+        throw parseAxiosError(fallbackError, "Failed to parse problem. The AI may be slow — try again.");
+      }
+    }
     throw parseAxiosError(error, "Failed to parse problem. The AI may be slow — try again.");
   }
 }

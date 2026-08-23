@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { AxiosRequestConfig } from "axios";
 import type { RunCodeResponse, SubmitCodeResponse } from "@/src/types/judge";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -8,7 +9,15 @@ const aiClient = axios.create({
   timeout: 120_000,
 });
 
+type AIRequestConfig = AxiosRequestConfig & {
+  skipUserApiKey?: boolean;
+};
+
 aiClient.interceptors.request.use((config) => {
+  if ((config as AIRequestConfig).skipUserApiKey) {
+    return config;
+  }
+
   const apiKey = typeof window !== "undefined"
     ? localStorage.getItem("questide_ai_api_key")
     : null;
@@ -60,6 +69,18 @@ export type AIRequest = {
   context?: AIContextPayload;
 };
 
+function isUserApiKeyError(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  const detail = (error.response?.data as { detail?: unknown } | undefined)?.detail;
+  return typeof detail === "string" && /api[_ ]key/i.test(detail);
+}
+
+function clearStoredUserApiKey() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("questide_ai_api_key");
+  }
+}
+
 export type AIResponse = {
   content: string;
   action: AIAction;
@@ -71,6 +92,17 @@ export async function requestAIAssist(payload: AIRequest): Promise<AIResponse> {
     const response = await aiClient.post<AIResponse>("/ai/assist", payload);
     return response.data;
   } catch (error) {
+    if (isUserApiKeyError(error) && typeof window !== "undefined" && localStorage.getItem("questide_ai_api_key")) {
+      clearStoredUserApiKey();
+      try {
+        const response = await aiClient.post<AIResponse>("/ai/assist", payload, {
+          skipUserApiKey: true,
+        } as AIRequestConfig);
+        return response.data;
+      } catch (fallbackError) {
+        error = fallbackError;
+      }
+    }
     if (axios.isAxiosError(error)) {
       const data = error.response?.data as { detail?: string } | undefined;
       return {
